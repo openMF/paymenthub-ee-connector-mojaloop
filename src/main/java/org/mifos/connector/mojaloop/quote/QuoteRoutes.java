@@ -18,6 +18,9 @@ import org.mifos.connector.common.mojaloop.dto.QuoteSwitchResponseDTO;
 import org.mifos.connector.common.mojaloop.dto.TransactionType;
 import org.mifos.connector.common.mojaloop.type.AmountType;
 import org.mifos.connector.mojaloop.camel.trace.AddTraceHeaderProcessor;
+import org.mifos.connector.mojaloop.config.BpmnFlowProperties;
+import org.mifos.connector.mojaloop.config.MojaloopProperties;
+import org.mifos.connector.mojaloop.config.SwitchProperties;
 import org.mifos.connector.mojaloop.ilp.Ilp;
 import org.mifos.connector.mojaloop.ilp.IlpBuilder;
 import org.mifos.connector.mojaloop.model.QuoteCallbackDTO;
@@ -27,7 +30,6 @@ import org.mifos.connector.mojaloop.zeebe.ZeebeProcessStarter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -41,17 +43,13 @@ import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.*;
 public class QuoteRoutes extends ErrorHandlerRouteBuilder {
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Value("${mojaloop.perf-mode}")
-    private boolean mojaPerfMode;
+    private final boolean mojaPerfMode;
 
-    @Value("${mojaloop.perf-resp-delay}")
-    private int mojaPerfRespDelay;
+    private final int mojaPerfRespDelay;
 
-    @Value("${bpmn.flows.quote}")
-    private String quoteFlow;
+    private final String quoteFlow;
 
-    @Value("${switch.quotes-host}")
-    private String quoteHost;
+    private final String quoteHost;
 
     @Autowired
     private IlpBuilder ilpBuilder;
@@ -77,8 +75,12 @@ public class QuoteRoutes extends ErrorHandlerRouteBuilder {
     @Autowired
     private QuoteResponseProcessor quoteResponseProcessor;
 
-    public QuoteRoutes() {
+    public QuoteRoutes(BpmnFlowProperties bpmnFlows, MojaloopProperties mojaloopProperties, SwitchProperties switchProperties) {
         super.configure();
+        this.mojaPerfMode = mojaloopProperties.perfMode();
+        this.mojaPerfRespDelay = mojaloopProperties.perfRespDelay();
+        this.quoteFlow = bpmnFlows.quote();
+        this.quoteHost = switchProperties.quotesHost();
     }
 
     @Override

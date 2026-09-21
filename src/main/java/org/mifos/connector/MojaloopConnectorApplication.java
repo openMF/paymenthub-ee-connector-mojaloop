@@ -8,12 +8,13 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.apache.camel.Processor;
 import org.mifos.connector.mojaloop.camel.config.CustomHeaderFilterStrategy;
+import org.mifos.connector.mojaloop.config.MojaloopProperties;
 import org.mifos.connector.mojaloop.properties.PartyProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -22,14 +23,18 @@ import org.springframework.context.annotation.Bean;
 import jakarta.annotation.PostConstruct;
 import static org.mifos.connector.mojaloop.camel.config.CamelProperties.CUSTOM_HEADER_FILTER_STRATEGY;
 
+@ConfigurationPropertiesScan("org.mifos.connector.mojaloop.config")
 @SpringBootApplication
 @EnableConfigurationProperties(PartyProperties.class)
 public class MojaloopConnectorApplication {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Value("${mojaloop.perf-mode}")
-    private boolean mojaPerfMode;
+    private final boolean mojaPerfMode;
+
+    public MojaloopConnectorApplication(MojaloopProperties mojaloopProperties) {
+        this.mojaPerfMode = mojaloopProperties.perfMode();
+    }
 
     public static void main(String[] args) {
         SpringApplication.run(MojaloopConnectorApplication.class, args);

@@ -6,6 +6,8 @@ import org.apache.camel.Exchange;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.support.DefaultExchange;
 import org.mifos.connector.common.mojaloop.dto.TransferSwitchResponseDTO;
+import org.mifos.connector.mojaloop.config.MojaloopProperties;
+import org.mifos.connector.mojaloop.config.ZeebeProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,8 +27,8 @@ import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.PAYEE_QUOTE_RESP
 import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.SWITCH_TRANSFER_REQUEST;
 import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.TIMEOUT_TRANSFER_RETRY_COUNT;
 import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.TRANSACTION_ID;
-import static org.mifos.connector.mojaloop.zeebe.ZeebeeWorkers.WORKER_PAYEE_TRANSFER_RESPONSE;
-import static org.mifos.connector.mojaloop.zeebe.ZeebeeWorkers.WORKER_SEND_TRANSFER_REQUEST;
+import static org.mifos.connector.mojaloop.zeebe.ZeebeWorkers.WORKER_PAYEE_TRANSFER_RESPONSE;
+import static org.mifos.connector.mojaloop.zeebe.ZeebeWorkers.WORKER_SEND_TRANSFER_REQUEST;
 
 @Component
 @ConditionalOnExpression("!${mojaloop.perf-mode:false}")
@@ -46,11 +48,14 @@ public class TransferWorkers {
     @Value("#{'${dfspids}'.split(',')}")
     private List<String> dfspids;
 
-    @Value("${zeebe.client.evenly-allocated-max-jobs}")
-    private int workerMaxJobs;
+    private final int workerMaxJobs;
 
-    @Value("${mojaloop.enabled}")
-    private boolean isMojaloopEnabled;
+    private final boolean isMojaloopEnabled;
+
+    public TransferWorkers(ZeebeProperties zeebeProperties, MojaloopProperties mojaloopProperties) {
+        this.workerMaxJobs = zeebeProperties.client().evenlyAllocatedMaxJobs();
+        this.isMojaloopEnabled = mojaloopProperties.enabled();
+    }
 
     @PostConstruct
     public void setupWorkers() {

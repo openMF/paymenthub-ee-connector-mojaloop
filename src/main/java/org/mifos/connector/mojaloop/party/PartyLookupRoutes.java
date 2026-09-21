@@ -13,11 +13,13 @@ import org.mifos.connector.common.mojaloop.dto.PartySwitchResponseDTO;
 import org.mifos.connector.common.mojaloop.type.IdentifierType;
 import org.mifos.connector.mojaloop.camel.trace.AddTraceHeaderProcessor;
 import org.mifos.connector.mojaloop.camel.trace.GetCachedTransactionIdProcessor;
+import org.mifos.connector.mojaloop.config.BpmnFlowProperties;
+import org.mifos.connector.mojaloop.config.MojaloopProperties;
+import org.mifos.connector.mojaloop.config.SwitchProperties;
 import org.mifos.connector.mojaloop.properties.PartyProperties;
 import org.mifos.connector.mojaloop.util.MojaloopUtil;
 import org.mifos.connector.mojaloop.zeebe.ZeebeProcessStarter;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import static org.mifos.connector.common.ams.dto.InteropIdentifierType.MSISDN;
 import static org.mifos.connector.common.mojaloop.type.MojaloopHeaders.FSPIOP_DESTINATION;
@@ -28,17 +30,13 @@ import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.*;
 @Component
 public class PartyLookupRoutes extends ErrorHandlerRouteBuilder {
 
-    @Value("${bpmn.flows.party-lookup}")
-    private String partyLookupFlow;
+    private final String partyLookupFlow;
 
-    @Value("${mojaloop.perf-mode}")
-    private boolean mojaPerfMode;
+    private final boolean mojaPerfMode;
 
-    @Value("${mojaloop.perf-resp-delay}")
-    private int mojaPerfRespDelay;
+    private final int mojaPerfRespDelay;
 
-    @Value("${switch.als-host}")
-    private String alsHost;
+    private final String alsHost;
 
     @Autowired
     private Processor pojoToString;
@@ -64,8 +62,12 @@ public class PartyLookupRoutes extends ErrorHandlerRouteBuilder {
     @Autowired
     private PartiesResponseProcessor partiesResponseProcessor;
 
-    public PartyLookupRoutes() {
+    public PartyLookupRoutes(BpmnFlowProperties bpmnFlows, MojaloopProperties mojaloopProperties, SwitchProperties switchProperties) {
         super.configure();
+        this.partyLookupFlow = bpmnFlows.partyLookup();
+        this.mojaPerfMode = mojaloopProperties.perfMode();
+        this.mojaPerfRespDelay = mojaloopProperties.perfRespDelay();
+        this.alsHost = switchProperties.alsHost();
     }
 
     @Override

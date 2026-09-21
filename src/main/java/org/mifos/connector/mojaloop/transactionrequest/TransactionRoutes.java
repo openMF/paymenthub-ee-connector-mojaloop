@@ -19,13 +19,13 @@ import org.mifos.connector.common.mojaloop.type.TransactionRequestState;
 import org.mifos.connector.common.mojaloop.type.TransactionRole;
 import org.mifos.connector.mojaloop.camel.trace.AddTraceHeaderProcessor;
 import org.mifos.connector.mojaloop.camel.trace.GetCachedTransactionIdProcessor;
+import org.mifos.connector.mojaloop.config.BpmnFlowProperties;
 import org.mifos.connector.mojaloop.properties.PartyProperties;
 import org.mifos.connector.mojaloop.util.MojaloopUtil;
 import org.mifos.connector.mojaloop.zeebe.ZeebeProcessStarter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import static org.mifos.connector.common.mojaloop.type.MojaloopHeaders.FSPIOP_DESTINATION;
@@ -46,8 +46,7 @@ public class TransactionRoutes extends ErrorHandlerRouteBuilder {
 
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Value("${bpmn.flows.transaction-request}")
-    private String transactionRequestFlow;
+    private final String transactionRequestFlow;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -73,8 +72,9 @@ public class TransactionRoutes extends ErrorHandlerRouteBuilder {
     @Autowired
     private TransactionResponseProcessor transactionResponseProcessor;
 
-    public TransactionRoutes() {
+    public TransactionRoutes(BpmnFlowProperties bpmnFlows) {
         super.configure();
+        this.transactionRequestFlow = bpmnFlows.transactionRequest();
     }
 
     @Override

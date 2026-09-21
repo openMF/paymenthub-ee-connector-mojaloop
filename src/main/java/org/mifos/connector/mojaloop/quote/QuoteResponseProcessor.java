@@ -5,12 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.zeebe.client.ZeebeClient;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
+import org.mifos.connector.mojaloop.config.MojaloopProperties;
 import org.mifos.connector.mojaloop.ilp.IlpBuilder;
 import org.mifos.connector.mojaloop.model.QuoteCallbackDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.HashMap;
@@ -36,8 +36,11 @@ public class QuoteResponseProcessor implements Processor {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Value("${mojaloop.enabled}")
-    private boolean isMojaloopEnabled;
+    private final boolean isMojaloopEnabled;
+
+    public QuoteResponseProcessor(MojaloopProperties mojaloopProperties) {
+        this.isMojaloopEnabled = mojaloopProperties.enabled();
+    }
 
     @Override
     public void process(Exchange exchange) throws JsonProcessingException {

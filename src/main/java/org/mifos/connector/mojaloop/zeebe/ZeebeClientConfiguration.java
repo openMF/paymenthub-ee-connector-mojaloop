@@ -1,7 +1,7 @@
 package org.mifos.connector.mojaloop.zeebe;
 
 import io.camunda.zeebe.client.ZeebeClient;
-import org.springframework.beans.factory.annotation.Value;
+import org.mifos.connector.mojaloop.config.ZeebeProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,14 +12,17 @@ import java.time.Duration;
 @ConditionalOnExpression("!${mojaloop.perf-mode:false}")
 public class ZeebeClientConfiguration {
 
-    @Value("${zeebe.broker.contactpoint}")
-    private String zeebeBrokerContactpoint;
+    private final String zeebeBrokerContactpoint;
 
-    @Value("${zeebe.client.max-execution-threads}")
-    private int zeebeClientMaxThreads;
+    private final int zeebeClientMaxThreads;
 
-    @Value("${zeebe.client.poll-interval}")
-    private int zeebeClientPollInterval;
+    private final int zeebeClientPollInterval;
+
+    public ZeebeClientConfiguration(ZeebeProperties zeebeProperties) {
+        this.zeebeBrokerContactpoint = zeebeProperties.broker().contactpoint();
+        this.zeebeClientMaxThreads = zeebeProperties.client().maxExecutionThreads();
+        this.zeebeClientPollInterval = zeebeProperties.client().pollInterval();
+    }
 
     @Bean
     public ZeebeClient setup() {

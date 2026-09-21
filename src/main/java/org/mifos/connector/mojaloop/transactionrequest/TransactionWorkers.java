@@ -7,6 +7,7 @@ import org.apache.camel.Exchange;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.support.DefaultExchange;
 import org.mifos.connector.common.channel.dto.TransactionChannelRequestDTO;
+import org.mifos.connector.mojaloop.config.ZeebeProperties;
 import org.mifos.connector.mojaloop.zeebe.ZeebeProcessStarter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,10 +32,10 @@ import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.AUTH_RETRIES_LEF
 import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.PAYER_CONFIRMATION_RETRY_COUNT;
 import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.TRANSACTION_REQUEST_RETRY_COUNT;
 import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.TRANSACTION_STATE;
-import static org.mifos.connector.mojaloop.zeebe.ZeebeeWorkers.WORKER_SEND_AUTH_CONFIRMATION;
-import static org.mifos.connector.mojaloop.zeebe.ZeebeeWorkers.WORKER_SEND_AUTH_RESPONSE;
-import static org.mifos.connector.mojaloop.zeebe.ZeebeeWorkers.WORKER_SEND_TRANSACTION_STATE_RESPONSE;
-import static org.mifos.connector.mojaloop.zeebe.ZeebeeWorkers.WORKER_TRANSACTION_REQUEST;
+import static org.mifos.connector.mojaloop.zeebe.ZeebeWorkers.WORKER_SEND_AUTH_CONFIRMATION;
+import static org.mifos.connector.mojaloop.zeebe.ZeebeWorkers.WORKER_SEND_AUTH_RESPONSE;
+import static org.mifos.connector.mojaloop.zeebe.ZeebeWorkers.WORKER_SEND_TRANSACTION_STATE_RESPONSE;
+import static org.mifos.connector.mojaloop.zeebe.ZeebeWorkers.WORKER_TRANSACTION_REQUEST;
 
 @Component
 @ConditionalOnExpression("!${mojaloop.perf-mode:false}")
@@ -57,8 +58,11 @@ public class TransactionWorkers {
     @Value("#{'${dfspids}'.split(',')}")
     private List<String> dfspids;
 
-    @Value("${zeebe.client.evenly-allocated-max-jobs}")
-    private int workerMaxJobs;
+    private final int workerMaxJobs;
+
+    public TransactionWorkers(ZeebeProperties zeebeProperties) {
+        this.workerMaxJobs = zeebeProperties.client().evenlyAllocatedMaxJobs();
+    }
 
     @PostConstruct
     public void setupWorkers() {

@@ -3,7 +3,7 @@ package org.mifos.connector.mojaloop.util;
 import com.ilp.conditions.models.pdp.Transaction;
 import org.apache.camel.Exchange;
 import org.mifos.connector.common.mojaloop.dto.QuoteSwitchRequestDTO;
-import org.springframework.beans.factory.annotation.Value;
+import org.mifos.connector.mojaloop.config.SwitchProperties;
 import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,17 +22,20 @@ import static org.mifos.connector.mojaloop.camel.config.CamelProperties.*;
 @Component
 public class MojaloopUtil {
 
-    @Value("${switch.account-lookup-service}")
-    private String accountLookupService;
+    private final String accountLookupService;
 
-    @Value("${switch.quote-service}")
-    private String switchQuoteService;
+    private final String switchQuoteService;
 
-    @Value("${switch.transfer-service}")
-    private String transferService;
+    private final String transferService;
 
-    @Value("${switch.transaction-request-service}")
-    private String transactionRequestService;
+    private final String transactionRequestService;
+
+    public MojaloopUtil(SwitchProperties switchProperties) {
+        this.accountLookupService = switchProperties.accountLookupService();
+        this.switchQuoteService = switchProperties.quoteService();
+        this.transferService = switchProperties.transferService();
+        this.transactionRequestService = switchProperties.transactionRequestService();
+    }
 
     public void setPartyHeadersResponse(Exchange exchange) {
         Map<String, Object> headers = new HashMap<>();

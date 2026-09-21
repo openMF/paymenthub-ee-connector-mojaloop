@@ -2,6 +2,7 @@ package org.mifos.connector.mojaloop.zeebe;
 
 import io.camunda.zeebe.client.ZeebeClient;
 import org.mifos.connector.common.mojaloop.type.TransactionRequestState;
+import org.mifos.connector.mojaloop.config.ZeebeProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,7 @@ import static org.mifos.connector.mojaloop.zeebe.ZeebeMessages.ACCEPT_QUOTE;
 
 @Component
 @ConditionalOnExpression("!${mojaloop.perf-mode:false}")
-public class ZeebeeWorkers {
+public class ZeebeWorkers {
 
     public static final String WORKER_GENERATE_OTP = "generate-otp-";
     public static final String WORKER_PARTY_LOOKUP_REQUEST = "party-lookup-request-";
@@ -48,8 +49,11 @@ public class ZeebeeWorkers {
     @Value("#{'${dfspids}'.split(',')}")
     private List<String> dfspids;
 
-    @Value("${zeebe.client.evenly-allocated-max-jobs}")
-    private int workerMaxJobs;
+    private final int workerMaxJobs;
+
+    public ZeebeWorkers(ZeebeProperties zeebeProperties) {
+        this.workerMaxJobs = zeebeProperties.client().evenlyAllocatedMaxJobs();
+    }
 
     @PostConstruct
     public void setupWorkers() {

@@ -13,11 +13,12 @@ import org.mifos.connector.common.mojaloop.type.TransferState;
 import org.mifos.connector.common.util.ContextUtil;
 import org.mifos.connector.mojaloop.camel.trace.AddTraceHeaderProcessor;
 import org.mifos.connector.mojaloop.camel.trace.GetCachedTransactionIdProcessor;
+import org.mifos.connector.mojaloop.config.MojaloopProperties;
+import org.mifos.connector.mojaloop.config.SwitchProperties;
 import org.mifos.connector.mojaloop.ilp.Ilp;
 import org.mifos.connector.mojaloop.ilp.IlpBuilder;
 import org.mifos.connector.mojaloop.util.MojaloopUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,14 +38,11 @@ import org.slf4j.LoggerFactory;
 public class TransferRoutes extends ErrorHandlerRouteBuilder {
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Value("${mojaloop.perf-mode}")
-    private boolean mojaPerfMode;
+    private final boolean mojaPerfMode;
 
-    @Value("${mojaloop.perf-resp-delay}")
-    private int mojaPerfRespDelay;
+    private final int mojaPerfRespDelay;
 
-    @Value("${switch.transfers-host}")
-    private String transferHost;
+    private final String transferHost;
 
     @Autowired
     private IlpBuilder ilpBuilder;
@@ -70,8 +68,11 @@ public class TransferRoutes extends ErrorHandlerRouteBuilder {
     @Autowired
     private TransferResponseProcessor transferResponseProcessor;
 
-    public TransferRoutes() {
+    public TransferRoutes(MojaloopProperties mojaloopProperties, SwitchProperties switchProperties) {
         super.configure();
+        this.mojaPerfMode = mojaloopProperties.perfMode();
+        this.mojaPerfRespDelay = mojaloopProperties.perfRespDelay();
+        this.transferHost = switchProperties.transfersHost();
     }
 
     @Override

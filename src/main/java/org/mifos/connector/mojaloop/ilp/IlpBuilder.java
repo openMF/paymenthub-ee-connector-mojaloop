@@ -12,10 +12,10 @@ import com.ilp.conditions.models.pdp.PartyIdInfo;
 import com.ilp.conditions.models.pdp.Transaction;
 import com.ilp.conditions.models.pdp.TransactionType;
 import org.mifos.connector.common.util.ContextUtil;
+import org.mifos.connector.mojaloop.config.ConnectorProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 
@@ -31,8 +31,11 @@ public class IlpBuilder {
     @Autowired
     private IlpConditionHandlerImpl ilpConditionHandlerImpl;
 
-    @Value("${connector.ilp-secret}")
-    private String conectorIlpSecret;
+    private final String conectorIlpSecret;
+
+    public IlpBuilder(ConnectorProperties connectorProperties) {
+        this.conectorIlpSecret = connectorProperties.ilpSecret();
+    }
 
     public Ilp build(String transactionId, String quoteId, BigDecimal transactionAmount, String currency, Party payer,
                      Party payee, BigDecimal transferAmount) throws IOException {
