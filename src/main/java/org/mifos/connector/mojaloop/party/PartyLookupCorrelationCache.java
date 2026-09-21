@@ -22,16 +22,18 @@ import java.util.concurrent.TimeUnit;
  * this coalesces concurrent lookups for the same identifier into a single outbound request
  * and fans its one answer out to every transaction waiting on it.
  * <p>
- * If the switch never calls back at all for an identifier, its waiter entry would otherwise
- * sit here forever, so a background sweep evicts and logs any entry older than the configured
- * timeout.
+ * If the switch never calls back, a stale entry is discarded (and logged) the moment the next
+ * caller touches that identifier - typically a BPMN-level retry re-registering the same
+ * transaction - rather than waiting on the background sweep, so a retry always gets a fresh
+ * outbound attempt instead of being told a (dead) lookup is already in flight. The sweep
+ * remains as a backstop for identifiers nothing ever retries, so they don't leak forever.
  */
 @Component
 public class PartyLookupCorrelationCache {
 
     private static final Logger logger = LoggerFactory.getLogger(PartyLookupCorrelationCache.class);
 
-    @Value("${mojaloop.party-lookup-timeout-ms:30000}")
+    @Value("${mojaloop.party-lookup-timeout-ms:10000}")
     private long pendingTimeoutMs;
 
     private final Map<String, PendingLookup> waitersByPartyId = new HashMap<>();
@@ -58,7 +60,15 @@ public class PartyLookupCorrelationCache {
      *         outbound lookup; false if a lookup is already in flight for it.
      */
     public synchronized boolean registerWaiter(String partyId, String transactionId) {
-        PendingLookup pending = waitersByPartyId.computeIfAbsent(partyId, key -> new PendingLookup());
+        PendingLookup pending = waitersByPartyId.get(partyId);
+        if (pending != null && isStale(pending)) {
+            logAbandoned(partyId, pending, "a new lookup for the same identifier arrived");
+            pending = null;
+        }
+        if (pending == null) {
+            pending = new PendingLookup();
+            waitersByPartyId.put(partyId, pending);
+        }
         boolean isFirstWaiter = pending.transactionIds.isEmpty();
         pending.transactionIds.add(transactionId);
         return isFirstWaiter;
@@ -70,19 +80,25 @@ public class PartyLookupCorrelationCache {
     }
 
     private synchronized void evictStaleEntries() {
-        long now = System.currentTimeMillis();
         waitersByPartyId.entrySet().removeIf(entry -> {
             PendingLookup pending = entry.getValue();
-            long ageMs = now - pending.registeredAtMs;
-            boolean isStale = ageMs >= pendingTimeoutMs;
+            boolean isStale = isStale(pending);
             if (isStale) {
-                logger.warn("Party lookup for partyId '{}' got no callback from the switch after {}ms; " +
-                                "evicting and abandoning {} waiting transaction(s), which will never be " +
-                                "unblocked by this lookup: {}",
-                        entry.getKey(), ageMs, pending.transactionIds.size(), pending.transactionIds);
+                logAbandoned(entry.getKey(), pending, "the periodic sweep ran");
             }
             return isStale;
         });
+    }
+
+    private boolean isStale(PendingLookup pending) {
+        return System.currentTimeMillis() - pending.registeredAtMs >= pendingTimeoutMs;
+    }
+
+    private void logAbandoned(String partyId, PendingLookup pending, String discoveredVia) {
+        logger.warn("Party lookup for partyId '{}' got no callback from the switch after {}ms; " +
+                        "abandoning {} waiting transaction(s), discovered because {}: {}",
+                partyId, System.currentTimeMillis() - pending.registeredAtMs, pending.transactionIds.size(),
+                discoveredVia, pending.transactionIds);
     }
 
     private static final class PendingLookup {
