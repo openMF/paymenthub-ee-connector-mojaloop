@@ -1,6 +1,8 @@
 package org.mifos.connector.mojaloop.config;
 
+import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * The {@code camel.*} setting this connector owns.
@@ -13,6 +15,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *            port the Camel REST configuration is given
  */
 
+@Validated
 @ConfigurationProperties(prefix = "camel")
-public record ConnectorCamelProperties(int serverPort) {
+public record ConnectorCamelProperties(@NotNull Integer serverPort) {
 }
