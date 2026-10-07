@@ -1,7 +1,9 @@
 package org.mifos.connector.mojaloop.config;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * How this connector reaches the Zeebe broker: {@code zeebe.broker.*} and {@code zeebe.client.*}.
@@ -12,8 +14,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *            client settings
  */
 
+@Validated
 @ConfigurationProperties(prefix = "zeebe")
-public record ZeebeProperties(@DefaultValue Broker broker, @DefaultValue Client client) {
+public record ZeebeProperties(@NotNull @Valid Broker broker, @NotNull @Valid Client client) {
 
     /**
      * The broker to connect to: {@code zeebe.broker.*}.
@@ -21,7 +24,7 @@ public record ZeebeProperties(@DefaultValue Broker broker, @DefaultValue Client 
      * @param contactpoint
      *            gateway address, as host:port
      */
-    public record Broker(String contactpoint) {
+    public record Broker(@NotNull String contactpoint) {
     }
 
     /**
@@ -34,8 +37,8 @@ public record ZeebeProperties(@DefaultValue Broker broker, @DefaultValue Client 
      * @param pollInterval
      *            job poll interval in milliseconds
      */
-    public record Client(int maxExecutionThreads,
-            int evenlyAllocatedMaxJobs,
-            int pollInterval) {
+    public record Client(@NotNull Integer maxExecutionThreads,
+            @NotNull Integer evenlyAllocatedMaxJobs,
+            @NotNull Integer pollInterval) {
     }
 }

@@ -1,7 +1,8 @@
 package org.mifos.connector.mojaloop.config;
 
+import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * The Mojaloop switch settings: {@code switch.*}.
@@ -15,8 +16,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * </p>
  *
  * <p>
- * Binding them here changes nothing about when a value is accepted: the names, the defaults and the behaviour are the ones the
- * connector already had.
+ * Every value is required, as it was when each one was read through a bare {@code @Value} or a Camel {@code {{...}}}
+ * placeholder: a missing key stops startup. An empty value is accepted, which is what lets the deployment leave the
+ * {@code *-service} values and {@code oracle-host} empty.
  * </p>
  *
  * @param alsHost
@@ -39,14 +41,15 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *            oracle host, empty when no oracle is configured
  */
 
+@Validated
 @ConfigurationProperties(prefix = "switch")
 public record SwitchProperties(
-        String alsHost,
-        @DefaultValue("") String accountLookupService,
-        String quotesHost,
-        @DefaultValue("") String quoteService,
-        String transfersHost,
-        @DefaultValue("") String transferService,
-        String transactionsHost,
-        @DefaultValue("") String transactionRequestService, @DefaultValue("") String oracleHost) {
+        @NotNull String alsHost,
+        @NotNull String accountLookupService,
+        @NotNull String quotesHost,
+        @NotNull String quoteService,
+        @NotNull String transfersHost,
+        @NotNull String transferService,
+        @NotNull String transactionsHost,
+        @NotNull String transactionRequestService, @NotNull String oracleHost) {
 }

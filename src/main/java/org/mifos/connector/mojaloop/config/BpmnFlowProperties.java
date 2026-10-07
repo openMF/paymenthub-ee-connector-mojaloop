@@ -1,6 +1,8 @@
 package org.mifos.connector.mojaloop.config;
 
+import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * The BPMN process ids this connector starts: {@code bpmn.flows.*}.
@@ -13,8 +15,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *            the payer transaction request flow
  */
 
+@Validated
 @ConfigurationProperties(prefix = "bpmn.flows")
-public record BpmnFlowProperties(String partyLookup,
-        String quote,
-        String transactionRequest) {
+public record BpmnFlowProperties(@NotNull String partyLookup,
+        @NotNull String quote,
+        @NotNull String transactionRequest) {
 }
