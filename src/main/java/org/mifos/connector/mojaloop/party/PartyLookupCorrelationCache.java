@@ -2,9 +2,9 @@ package org.mifos.connector.mojaloop.party;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import org.mifos.connector.mojaloop.config.MojaloopProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -33,12 +33,15 @@ public class PartyLookupCorrelationCache {
 
     private static final Logger logger = LoggerFactory.getLogger(PartyLookupCorrelationCache.class);
 
-    @Value("${mojaloop.party-lookup-timeout-ms:10000}")
-    private long pendingTimeoutMs;
+    private final long pendingTimeoutMs;
 
     private final Map<String, PendingLookup> waitersByPartyId = new HashMap<>();
 
     private ScheduledExecutorService sweeper;
+
+    public PartyLookupCorrelationCache(MojaloopProperties mojaloopProperties) {
+        this.pendingTimeoutMs = mojaloopProperties.partyLookupTimeoutMs();
+    }
 
     @PostConstruct
     void start() {

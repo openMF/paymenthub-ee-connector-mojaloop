@@ -13,9 +13,12 @@ import org.springframework.validation.annotation.Validated;
  *            performance mode, which short-circuits parts of the flow
  * @param perfRespDelay
  *            artificial delay in milliseconds used by performance mode
+ * @param partyLookupTimeoutMs
+ *            how long a party lookup waits for the switch's callback before it is abandoned and a retry may resend it
  */
 
 @Validated
 @ConfigurationProperties(prefix = "mojaloop")
-public record MojaloopProperties(@NotNull Boolean enabled, @NotNull Boolean perfMode, @NotNull Integer perfRespDelay) {
+public record MojaloopProperties(@NotNull Boolean enabled, @NotNull Boolean perfMode, @NotNull Integer perfRespDelay,
+        @NotNull Long partyLookupTimeoutMs) {
 }
