@@ -12,7 +12,6 @@ import org.mifos.connector.common.mojaloop.dto.PartyIdInfo;
 import org.mifos.connector.common.mojaloop.dto.PartySwitchResponseDTO;
 import org.mifos.connector.common.mojaloop.type.IdentifierType;
 import org.mifos.connector.mojaloop.camel.trace.AddTraceHeaderProcessor;
-import org.mifos.connector.mojaloop.camel.trace.GetCachedTransactionIdProcessor;
 import org.mifos.connector.mojaloop.config.BpmnFlowProperties;
 import org.mifos.connector.mojaloop.config.MojaloopProperties;
 import org.mifos.connector.mojaloop.config.SwitchProperties;
@@ -21,6 +20,7 @@ import org.mifos.connector.mojaloop.util.MojaloopUtil;
 import org.mifos.connector.mojaloop.zeebe.ZeebeProcessStarter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import java.util.List;
 import static org.mifos.connector.common.ams.dto.InteropIdentifierType.MSISDN;
 import static org.mifos.connector.common.mojaloop.type.MojaloopHeaders.FSPIOP_DESTINATION;
 import static org.mifos.connector.common.mojaloop.type.MojaloopHeaders.FSPIOP_SOURCE;
@@ -57,7 +57,7 @@ public class PartyLookupRoutes extends ErrorHandlerRouteBuilder {
     private AddTraceHeaderProcessor addTraceHeaderProcessor;
 
     @Autowired
-    private GetCachedTransactionIdProcessor getCachedTransactionIdProcessor;
+    private PartyLookupCorrelationCache partyLookupCorrelationCache;
 
     @Autowired
     private PartiesResponseProcessor partiesResponseProcessor;
@@ -110,20 +110,37 @@ public class PartyLookupRoutes extends ErrorHandlerRouteBuilder {
         from("rest:PUT:/switch/parties/" + MSISDN + "/{partyId}")
                 .setProperty(CLASS_TYPE, constant(PartySwitchResponseDTO.class))
                 .to("direct:body-unmarshling")
-                .process(getCachedTransactionIdProcessor)
+                .process(e -> e.setProperty(RESOLVED_PARTY_LOOKUP_WAITERS,
+                        partyLookupCorrelationCache.resolveWaiters(e.getIn().getHeader(PARTY_ID, String.class))))
                 .to("direct:parties-step4");
 
         from("direct:parties-step4")
                 .log(LoggingLevel.DEBUG, "######## SWITCH -> PAYER - response for parties request  - STEP 4")
-                .process(partiesResponseProcessor)
+                .process(e -> {
+                    // the mojaloop-disabled dummy-response path (PartyLookupWorkers) sends here
+                    // directly with a single CACHED_TRANSACTION_ID and no waiter list
+                    List<String> transactionIds = e.getProperty(RESOLVED_PARTY_LOOKUP_WAITERS, List.class);
+                    if (transactionIds == null) {
+                        transactionIds = List.of(e.getProperty(CACHED_TRANSACTION_ID, String.class));
+                    }
+                    for (String transactionId : transactionIds) {
+                        e.setProperty(CACHED_TRANSACTION_ID, transactionId);
+                        partiesResponseProcessor.process(e);
+                    }
+                })
                 .setBody(constant(null))
                 .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(200));
 
         from("rest:PUT:/switch/parties/" + MSISDN + "/{partyId}/error")
                 .log(LoggingLevel.ERROR, "######## SWITCH -> PAYER - parties error")
-                .process(getCachedTransactionIdProcessor)
                 .setProperty(PARTY_LOOKUP_FAILED, constant(true))
-                .process(partiesResponseProcessor)
+                .process(e -> {
+                    List<String> transactionIds = partyLookupCorrelationCache.resolveWaiters(e.getIn().getHeader(PARTY_ID, String.class));
+                    for (String transactionId : transactionIds) {
+                        e.setProperty(CACHED_TRANSACTION_ID, transactionId);
+                        partiesResponseProcessor.process(e);
+                    }
+                })
                 .setBody(constant(null))
                 .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(200));
 
@@ -183,11 +200,20 @@ public class PartyLookupRoutes extends ErrorHandlerRouteBuilder {
                     e.getIn().setHeader(FSPIOP_SOURCE.headerName(), partyProperties.getPartyByTenant(e.getProperty(TENANT_ID, String.class)).getFspId());
                     e.getIn().setHeader(FSPIOP_SOURCE.headerName(), "greenbank");
                     mojaloopUtil.setPartyHeadersRequest(e);
+
+                    boolean isFirstWaiter = partyLookupCorrelationCache.registerWaiter(
+                            requestedParty.getPartyIdentifier(), e.getProperty(TRANSACTION_ID, String.class));
+                    e.setProperty(PARTY_LOOKUP_ALREADY_PENDING, !isFirstWaiter);
                 })
-                .process(addTraceHeaderProcessor)
-                .setHeader(Exchange.HTTP_METHOD, constant("GET"))
-                .setProperty(HOST, simple("{{switch.als-host}}"))
-                .setProperty(ENDPOINT, simple("/parties/${exchangeProperty." + PARTY_ID_TYPE + "}/${exchangeProperty." + PARTY_ID + "}"))
-                .to("direct:external-api-call");
+                .choice()
+                    .when(e -> Boolean.TRUE.equals(e.getProperty(PARTY_LOOKUP_ALREADY_PENDING, Boolean.class)))
+                        .log(LoggingLevel.INFO, "######## PAYER -> SWITCH - party lookup already in flight for ${exchangeProperty." + PARTY_ID + "}, not resending")
+                    .otherwise()
+                        .process(addTraceHeaderProcessor)
+                        .setHeader(Exchange.HTTP_METHOD, constant("GET"))
+                        .setProperty(HOST, simple("{{switch.als-host}}"))
+                        .setProperty(ENDPOINT, simple("/parties/${exchangeProperty." + PARTY_ID_TYPE + "}/${exchangeProperty." + PARTY_ID + "}"))
+                        .to("direct:external-api-call")
+                .end();
     }
 }

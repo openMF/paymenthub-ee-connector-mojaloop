@@ -7,6 +7,8 @@ public class CamelProperties {
     public static final String AUTH_TYPE = "authType";
     public static final String CACHED_TRANSACTION_ID = "cachedTransactionId";
     public static final String PARTY_EXISTS = "partyExists";
+    public static final String PARTY_LOOKUP_ALREADY_PENDING = "partyLookupAlreadyPending";
+    public static final String RESOLVED_PARTY_LOOKUP_WAITERS = "resolvedPartyLookupWaiters";
 
     public static final String HOST = "externalApiCallHost";
     public static final String ENDPOINT = "externalApiCallEndpoint";

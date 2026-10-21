@@ -12,7 +12,6 @@ import org.mifos.connector.common.mojaloop.dto.*;
 import org.mifos.connector.common.mojaloop.type.TransferState;
 import org.mifos.connector.common.util.ContextUtil;
 import org.mifos.connector.mojaloop.camel.trace.AddTraceHeaderProcessor;
-import org.mifos.connector.mojaloop.camel.trace.GetCachedTransactionIdProcessor;
 import org.mifos.connector.mojaloop.config.MojaloopProperties;
 import org.mifos.connector.mojaloop.config.SwitchProperties;
 import org.mifos.connector.mojaloop.ilp.Ilp;
@@ -61,9 +60,6 @@ public class TransferRoutes extends ErrorHandlerRouteBuilder {
 
     @Autowired
     private AddTraceHeaderProcessor addTraceHeaderProcessor;
-
-    @Autowired
-    private GetCachedTransactionIdProcessor getCachedTransactionIdProcessor;
 
     @Autowired
     private TransferResponseProcessor transferResponseProcessor;
@@ -128,13 +124,13 @@ public class TransferRoutes extends ErrorHandlerRouteBuilder {
         from("rest:PATCH:/switch/transfers/{"+TRANSACTION_ID+"}")
                 .setProperty(CLASS_TYPE, constant(TransferSwitchResponseDTO.class))
                 .to("direct:body-unmarshling")
-                .process(getCachedTransactionIdProcessor)
+                .process(e -> e.setProperty(CACHED_TRANSACTION_ID, e.getIn().getHeader(TRANSACTION_ID, String.class)))
                 .to("direct:transfers-step4");
 
         from("rest:PUT:/switch/transfers/{"+TRANSACTION_ID+"}")
                 .setProperty(CLASS_TYPE, constant(TransferSwitchResponseDTO.class))
                 .to("direct:body-unmarshling")
-                .process(getCachedTransactionIdProcessor)
+                .process(e -> e.setProperty(CACHED_TRANSACTION_ID, e.getIn().getHeader(TRANSACTION_ID, String.class)))
                 .to("direct:transfers-step4");
 
         from("direct:transfers-step4")
@@ -145,7 +141,7 @@ public class TransferRoutes extends ErrorHandlerRouteBuilder {
 
         from("rest:PUT:/switch/transfers/{"+TRANSACTION_ID+"}/error")
                 .log(LoggingLevel.ERROR, "######## SWITCH -> PAYER - transfer error ${header."+TRANSACTION_ID+"}")
-                .process(getCachedTransactionIdProcessor)
+                .process(e -> e.setProperty(CACHED_TRANSACTION_ID, e.getIn().getHeader(TRANSACTION_ID, String.class)))
                 .setProperty(TRANSFER_FAILED, constant(true))
                 .process(transferResponseProcessor)
                 .setBody(constant(null))
