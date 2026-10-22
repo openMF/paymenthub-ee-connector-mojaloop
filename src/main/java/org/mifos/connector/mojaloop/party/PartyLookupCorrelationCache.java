@@ -2,15 +2,16 @@ package org.mifos.connector.mojaloop.party;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import org.mifos.connector.mojaloop.config.MojaloopProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -33,12 +34,15 @@ public class PartyLookupCorrelationCache {
 
     private static final Logger logger = LoggerFactory.getLogger(PartyLookupCorrelationCache.class);
 
-    @Value("${mojaloop.party-lookup-timeout-ms:10000}")
-    private long pendingTimeoutMs;
+    private final long pendingTimeoutMs;
 
     private final Map<String, PendingLookup> waitersByPartyId = new HashMap<>();
 
     private ScheduledExecutorService sweeper;
+
+    public PartyLookupCorrelationCache(MojaloopProperties mojaloopProperties) {
+        this.pendingTimeoutMs = mojaloopProperties.partyLookupTimeoutMs();
+    }
 
     @PostConstruct
     void start() {
@@ -56,6 +60,9 @@ public class PartyLookupCorrelationCache {
     }
 
     /**
+     * Registering the same transaction again while its lookup is still pending (for example a
+     * retry that arrives before the timeout) is a no-op, so the callback reaches it only once.
+     *
      * @return true if this is the first waiter for partyId and the caller should send the
      *         outbound lookup; false if a lookup is already in flight for it.
      */
@@ -76,7 +83,7 @@ public class PartyLookupCorrelationCache {
 
     public synchronized List<String> resolveWaiters(String partyId) {
         PendingLookup pending = waitersByPartyId.remove(partyId);
-        return pending == null ? List.of() : pending.transactionIds;
+        return pending == null ? List.of() : List.copyOf(pending.transactionIds);
     }
 
     private synchronized void evictStaleEntries() {
@@ -103,6 +110,6 @@ public class PartyLookupCorrelationCache {
 
     private static final class PendingLookup {
         private final long registeredAtMs = System.currentTimeMillis();
-        private final List<String> transactionIds = new ArrayList<>();
+        private final Set<String> transactionIds = new LinkedHashSet<>();
     }
 }

@@ -82,6 +82,7 @@ class ShippedConfigBindsTest {
             assertThat(mojaloop.enabled()).isTrue();
             assertThat(mojaloop.perfMode()).isFalse();
             assertThat(mojaloop.perfRespDelay()).isEqualTo(100);
+            assertThat(mojaloop.partyLookupTimeoutMs()).isEqualTo(10000L);
             SwitchProperties switchProperties = context.getBean(SwitchProperties.class);
             assertThat(switchProperties.alsHost()).isEqualTo("http://fspiop-api-svc.vnext.svc.cluster.local:4000");
             assertThat(switchProperties.transactionsHost()).isEqualTo("http://fspiop-api-svc.vnext.svc.cluster.local:4000");
@@ -117,6 +118,15 @@ class ShippedConfigBindsTest {
             assertThat(context).hasFailed();
             assertThat(context.getStartupFailure()).hasStackTraceContaining("Binding validation errors on mojaloop");
         });
+    }
+
+    @Test
+    void aPartyLookupTimeoutSetToNothingStopsStartup() {
+        withShippedYaml().withUserConfiguration(OnlyMojaloop.class).withPropertyValues("mojaloop.party-lookup-timeout-ms=")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure()).hasStackTraceContaining("Binding validation errors on mojaloop");
+                });
     }
 
     @Test
