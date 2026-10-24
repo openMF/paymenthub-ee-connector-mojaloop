@@ -10,12 +10,18 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
+
+import static org.mifos.connector.mojaloop.camel.config.CamelProperties.HEADER_TRACEPARENT;
 
 @Component
 public class ZeebeProcessStarter {
 
     private static Logger logger = LoggerFactory.getLogger(ZeebeProcessStarter.class);
+
+    // Names that are legitimately absent, e.g. traceparent when the flow wasn't started with one
+    private static final Set<String> OPTIONAL_NAMES = Set.of(HEADER_TRACEPARENT);
 
     @Autowired(required = false)
     private ZeebeClient zeebeClient;
@@ -40,7 +46,7 @@ public class ZeebeProcessStarter {
         for (String name : names) {
             Object value = variables.get(name);
             if (value == null) {
-                logger.error("failed to find Zeebe variable name {}", name);
+                logMissing("failed to find Zeebe variable name {}", name);
             }
             exchange.getIn().setHeader(name, value);
         }
@@ -50,9 +56,17 @@ public class ZeebeProcessStarter {
         for (String name : names) {
             String header = exchange.getIn().getHeader(name, String.class);
             if (header == null) {
-                logger.error("failed to find Camel Exchange header {}", name);
+                logMissing("failed to find Camel Exchange header {}", name);
             }
             variables.put(name, header);
+        }
+    }
+
+    private static void logMissing(String message, String name) {
+        if (OPTIONAL_NAMES.contains(name)) {
+            logger.debug(message, name);
+        } else {
+            logger.error(message, name);
         }
     }
 }
