@@ -180,7 +180,8 @@ public class TransferRoutes extends ErrorHandlerRouteBuilder {
                     Ilp ilp = ilpBuilder.parse(request.getIlpPacket(), request.getCondition());
 
                     TransferSwitchResponseDTO response = new TransferSwitchResponseDTO(
-                            ilp.getFulfilment(),
+                            // parse() carries no fulfilment, so this used to send none (PHEE-476)
+                            ilpBuilder.fulfilmentFor(request.getIlpPacket(), request.getCondition()),
                             ContextUtil.parseMojaDate(exchange.getIn().getHeader(HEADER_DATE, String.class)), // there is a validation at fulfiltransfer: completedTimestamp.getTime() > now.getTime() + maxCallbackTimeLagDilation(200ms by default)
                             TransferState.COMMITTED,
                             null);
