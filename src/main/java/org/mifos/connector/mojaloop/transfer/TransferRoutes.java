@@ -19,6 +19,7 @@ import org.mifos.connector.mojaloop.ilp.IlpBuilder;
 import org.mifos.connector.mojaloop.util.MojaloopUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import static org.mifos.connector.common.mojaloop.type.MojaloopHeaders.FSPIOP_DESTINATION;
@@ -63,6 +64,12 @@ public class TransferRoutes extends ErrorHandlerRouteBuilder {
 
     @Autowired
     private TransferResponseProcessor transferResponseProcessor;
+
+    @Autowired
+    private TransferExpiryPolicy expiryPolicy;
+
+    /** Exchange property: the expiry (UTC LocalDateTime) the prepare is sent with. */
+    public static final String TRANSFER_EXPIRATION_UTC = "transferExpirationUtc";
 
     public TransferRoutes(MojaloopProperties mojaloopProperties, SwitchProperties switchProperties) {
         super.configure();
@@ -205,6 +212,11 @@ public class TransferRoutes extends ErrorHandlerRouteBuilder {
                     QuoteSwitchResponseDTO quoteResponse = exchange.getIn().getBody(QuoteSwitchResponseDTO.class);
                     Ilp ilp = ilpBuilder.parse(quoteResponse.getIlpPacket(), quoteResponse.getCondition());
                     Transaction transaction = ilp.getTransaction();
+                    LocalDateTime expiration = exchange.getProperty(TRANSFER_EXPIRATION_UTC, LocalDateTime.class);
+                    if (expiration == null) {
+                        expiration = expiryPolicy.transferExpiration(quoteResponse.getExpiration());
+                        exchange.setProperty(TRANSFER_EXPIRATION_UTC, expiration);
+                    }
                     TransferSwitchRequestDTO request = new TransferSwitchRequestDTO(
                             transaction.getTransactionId(),
                             transaction.getPayer().getPartyIdInfo().getFspId(),
@@ -212,7 +224,7 @@ public class TransferRoutes extends ErrorHandlerRouteBuilder {
                             new MoneyData(transaction.getAmount().getAmount(), transaction.getAmount().getCurrency()),
                             ilp.getPacket(),
                             ilp.getCondition(),
-                            ContextUtil.parseDate(quoteResponse.getExpiration()).plusHours(1),
+                            expiration,
                             objectMapper.readValue(exchange.getProperty(CHANNEL_REQUEST, String.class), TransactionChannelRequestDTO.class).getExtensionList());
 
                     exchange.getIn().setBody(request);
