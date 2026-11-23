@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 import jakarta.annotation.PostConstruct;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import static org.mifos.connector.common.mojaloop.type.TransferState.COMMITTED;
@@ -27,6 +29,8 @@ import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.PAYEE_QUOTE_RESP
 import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.SWITCH_TRANSFER_REQUEST;
 import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.TIMEOUT_TRANSFER_RETRY_COUNT;
 import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.TRANSACTION_ID;
+import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.TRANSFER_EXPIRATION;
+import static org.mifos.connector.mojaloop.zeebe.ZeebeVariables.TRANSFER_FINAL_QUERY_AT;
 import static org.mifos.connector.mojaloop.zeebe.ZeebeWorkers.WORKER_PAYEE_TRANSFER_RESPONSE;
 import static org.mifos.connector.mojaloop.zeebe.ZeebeWorkers.WORKER_SEND_TRANSFER_REQUEST;
 
@@ -44,6 +48,12 @@ public class TransferWorkers {
 
     @Autowired
     private CamelContext camelContext;
+
+    @Autowired
+    private TransferExpiryPolicy expiryPolicy;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Value("#{'${dfspids}'.split(',')}")
     private List<String> dfspids;
@@ -103,10 +113,17 @@ public class TransferWorkers {
                     .handler((client, job) -> {
                         logger.info("Job '{}' started from process '{}' with key {}", job.getType(), job.getBpmnProcessId(), job.getKey());
                         Map<String, Object> variables = job.getVariablesAsMap();
+                        // PHEE-476: the payer flow no longer resends the prepare, so nothing new reads this count. It is
+                        // still kept up to date for instances started on the earlier BPMN, whose resend loop stops on it.
                         variables.put(TIMEOUT_TRANSFER_RETRY_COUNT, 1 + (Integer) variables.getOrDefault(TIMEOUT_TRANSFER_RETRY_COUNT, -1));
 
                         Exchange exchange = new DefaultExchange(camelContext);
                         Object transactionId = variables.get(TRANSACTION_ID);
+                        // The prepare's expiry, and until when the BPMN waits for the switch's answer (PHEE-476)
+                        LocalDateTime expiration = expiryPolicy.transferExpiration(quoteExpiration(variables.get(PAYEE_QUOTE_RESPONSE)));
+                        exchange.setProperty(TransferRoutes.TRANSFER_EXPIRATION_UTC, expiration);
+                        variables.put(TRANSFER_EXPIRATION, TransferExpiryPolicy.toBpmn(expiration));
+                        variables.put(TRANSFER_FINAL_QUERY_AT, TransferExpiryPolicy.toBpmn(expiryPolicy.finalQueryAt(expiration)));
                         if(isMojaloopEnabled) {
                             exchange.setProperty(TRANSACTION_ID, transactionId);
                             exchange.setProperty(ORIGIN_DATE, variables.get(ORIGIN_DATE));
@@ -130,6 +147,19 @@ public class TransferWorkers {
                     .name(WORKER_SEND_TRANSFER_REQUEST + dfspid)
                     .maxJobsActive(workerMaxJobs)
                     .open();
+        }
+    }
+
+    /** The payee's quote expiry from the payeeQuoteResponse variable, or null if it can't be read. */
+    private String quoteExpiration(Object payeeQuoteResponse) {
+        if (payeeQuoteResponse == null) {
+            return null;
+        }
+        try {
+            return objectMapper.readTree(payeeQuoteResponse.toString()).path("expiration").asText(null);
+        } catch (Exception e) {
+            logger.warn("Could not read the quote's expiration: {}", e.getMessage());
+            return null;
         }
     }
 }

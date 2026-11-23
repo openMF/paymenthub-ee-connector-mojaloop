@@ -39,6 +39,13 @@ public class ZeebeVariables {
     public static final String TRANSACTION_REQUEST_RETRY_COUNT = "transactionRequestRetryCount";
     public static final String TRANSACTION_STATE = "transactionState";
     public static final String TRANSFER_FAILED = "transferFailed";
+    /** The prepared transfer's expiry (UTC, ISO-8601 with offset), set by send-transfer-request. */
+    public static final String TRANSFER_EXPIRATION = "transferExpiration";
+    /**
+     * Until when the payer waits for the switch's answer: expiry plus grace (UTC, ISO-8601 with offset), set by
+     * send-transfer-request.
+     */
+    public static final String TRANSFER_FINAL_QUERY_AT = "transferFinalQueryAt";
     public static final String TRANSFER_STATE = "transferState";
     public static final String PAYEE_TENANT_ID = "payeeTenantId";
 

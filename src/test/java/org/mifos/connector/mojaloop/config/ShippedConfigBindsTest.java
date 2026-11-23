@@ -28,8 +28,12 @@ class ShippedConfigBindsTest {
 
     @Configuration(proxyBeanMethods = false)
     @EnableConfigurationProperties({ BpmnFlowProperties.class, ConnectorCamelProperties.class, ConnectorProperties.class,
-            MojaloopProperties.class, SwitchProperties.class, ZeebeProperties.class })
+            ExpiryProperties.class, MojaloopProperties.class, SwitchProperties.class, ZeebeProperties.class })
     static class AllRecords {}
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableConfigurationProperties(ExpiryProperties.class)
+    static class OnlyExpiry {}
 
     @Configuration(proxyBeanMethods = false)
     @EnableConfigurationProperties(BpmnFlowProperties.class)
@@ -57,7 +61,7 @@ class ShippedConfigBindsTest {
 
     /** One configuration class per record, keyed by the prefix that record binds. */
     private static final Map<String, Class<?>> ONE_RECORD_EACH = Map.of("bpmn.flows", OnlyBpmnFlows.class, "camel", OnlyCamel.class,
-            "connector", OnlyConnector.class, "mojaloop", OnlyMojaloop.class, "switch", OnlySwitch.class, "zeebe", OnlyZeebe.class);
+            "connector", OnlyConnector.class, "mojaloop", OnlyMojaloop.class, "mojaloop.expiry", OnlyExpiry.class, "switch", OnlySwitch.class, "zeebe", OnlyZeebe.class);
 
     private ApplicationContextRunner runner() {
         return new ApplicationContextRunner().withConfiguration(
@@ -83,6 +87,11 @@ class ShippedConfigBindsTest {
             assertThat(mojaloop.perfMode()).isFalse();
             assertThat(mojaloop.perfRespDelay()).isEqualTo(100);
             assertThat(mojaloop.partyLookupTimeoutMs()).isEqualTo(10000L);
+            ExpiryProperties expiry = context.getBean(ExpiryProperties.class);
+            // unset: the quote's expiry plus one hour, as before PHEE-476
+            assertThat(expiry.transfer()).isNull();
+            assertThat(expiry.finalQueryGrace()).isEqualTo(java.time.Duration.ofSeconds(30));
+            assertThat(expiry.quote()).isEqualTo(java.time.Duration.ofHours(1));
             SwitchProperties switchProperties = context.getBean(SwitchProperties.class);
             assertThat(switchProperties.alsHost()).isEqualTo("http://fspiop-api-svc.vnext.svc.cluster.local:4000");
             assertThat(switchProperties.transactionsHost()).isEqualTo("http://fspiop-api-svc.vnext.svc.cluster.local:4000");
@@ -134,6 +143,14 @@ class ShippedConfigBindsTest {
         withShippedYaml().withUserConfiguration(OnlySwitch.class).withPropertyValues("switch.quote-service=").run(context -> {
             assertThat(context).hasNotFailed();
             assertThat(context.getBean(SwitchProperties.class).quoteService()).isEmpty();
+        });
+    }
+
+    @Test
+    void aTransferExpiryCanBeSetFromTheEnvironmentStyleProperty() {
+        withShippedYaml().withUserConfiguration(OnlyExpiry.class).withPropertyValues("mojaloop.expiry.transfer=60s").run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context.getBean(ExpiryProperties.class).transfer()).isEqualTo(java.time.Duration.ofSeconds(60));
         });
     }
 }

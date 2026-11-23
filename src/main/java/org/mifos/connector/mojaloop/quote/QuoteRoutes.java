@@ -52,6 +52,9 @@ public class QuoteRoutes extends ErrorHandlerRouteBuilder {
     private final String quoteHost;
 
     @Autowired
+    private org.mifos.connector.mojaloop.transfer.TransferExpiryPolicy expiryPolicy;
+
+    @Autowired
     private IlpBuilder ilpBuilder;
 
     @Autowired
@@ -232,7 +235,7 @@ public class QuoteRoutes extends ErrorHandlerRouteBuilder {
                                     requestAmount.getCurrency()),
                             new MoneyData(new BigDecimal("0.3"), fspFeeCurrency),
                             new MoneyData(new BigDecimal("0.4"), fspCommissionCurrency),
-                            LocalDateTime.now().plusHours(1),
+                            expiryPolicy.quoteExpiration(),
                             null,
                             ilp.getPacket(),
                             ilp.getCondition(),

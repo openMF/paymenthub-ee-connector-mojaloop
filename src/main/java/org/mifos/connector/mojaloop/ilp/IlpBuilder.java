@@ -56,6 +56,23 @@ public class IlpBuilder {
         return new Ilp(packet, condition, ilpConditionHandlerImpl.getTransactionFromIlpPacket(packet));
     }
 
+    /**
+     * The fulfilment for a transfer this connector is the payee of. The condition was issued by this connector in its
+     * quote response (see {@link #build(Transaction, BigDecimal)}), so the fulfilment is regenerated from the packet and
+     * the ILP secret, and checked against the condition the transfer carries.
+     * <p>
+     * FSPIOP requires the fulfilment on a committed transfer: the payer uses it as proof the payee committed.
+     *
+     * @throws IllegalStateException if the fulfilment doesn't match the condition, i.e. this connector didn't issue it
+     */
+    public String fulfilmentFor(String packet, String condition) {
+        String fulfilment = ilpConditionHandlerImpl.generateFulfillment(packet, conectorIlpSecret.getBytes());
+        if (condition == null || !ilpConditionHandlerImpl.validateFulfillmentAgainstCondition(fulfilment, condition)) {
+            throw new IllegalStateException("Cannot fulfil: the transfer's condition was not issued by this connector");
+        }
+        return fulfilment;
+    }
+
     public boolean isValidPacketAgainstCondition(String packet, String condition) {
         return ilpConditionHandlerImpl.generateCondition(packet, conectorIlpSecret.getBytes()).equals(condition);
     }

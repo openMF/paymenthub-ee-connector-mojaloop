@@ -43,6 +43,14 @@ mojaloop:
   perf-mode: false
   perf-resp-delay: 100
   party-lookup-timeout-ms: 10000
+  expiry:
+    # FSPIOP leaves expiry times to the scheme rules: set them per deployment.
+    # transfer: the expiry of a transfer prepared as payer (e.g. 60s). Unset, it is the quote's expiry
+    # plus one hour, as before PHEE-476. At expiry the switch rolls back a transfer that wasn't committed
+    # and tells the payer (3303). final-query-grace: how long after expiry the payer keeps waiting.
+    # transfer: 60s
+    final-query-grace: 30s
+    quote: 1h
 
 switch:
   quotes-host: http://fspiop-api-svc.vnext.svc.cluster.local:4000
